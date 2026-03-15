@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+<t t-name="face_image_annotator.AnnotatorAction">
+    <div class="face-annotator d-flex flex-column vh-100" style="touch-action: none; overflow: hidden;">
+
+        <!-- UPLOAD SCREEN -->
+        <t t-if="!hasImage">
+            <div class="d-flex align-items-center justify-content-center flex-grow-1 p-3"
+                 style="background: #0F0F0F;">
+                <div class="face-dropzone text-center"
+                     t-att-class="{'face-dropzone-active': state.isDragOver}"
+                     t-on-dragover="onDragOver"
+                     t-on-dragleave="onDragLeave"
+                     t-on-drop="onDrop"
+                     t-on-click="onDropZoneClick">
+                    <div style="font-size: 48px; margin-bottom: 16px;">📷</div>
+                    <div style="color: #ccc; font-size: 18px; font-weight: 600; margin-bottom: 8px;">
+                        Bild hierher ziehen
+                    </div>
+                    <div style="color: #666; font-size: 14px;">
+                        oder klicken / tippen zum Auswählen
+                    </div>
+                    <input t-ref="fileInput" type="file" accept="image/*"
+                           style="display: none;"
+                           t-on-change="onFileInputChange"/>
+                </div>
+            </div>
+        </t>
+
+        <!-- ANNOTATOR -->
+        <t t-if="hasImage">
+
+            <!-- TOOLBAR -->
+            <div class="face-toolbar d-flex align-items-center gap-1 flex-wrap"
+                 style="touch-action: auto;">
+
+                <!-- Tools -->
+                <div class="d-flex gap-1 me-2">
+                    <button t-on-click="onSelectToolSelect"
+                            t-att-class="getToolBtnClass('select')"
+                            title="Auswählen">↖</button>
+                    <button t-on-click="onSelectToolText"
+                            t-att-class="getToolBtnClass('text')"
+                            title="Text">T</button>
+                    <button t-on-click="onSelectToolArrow"
+                            t-att-class="getToolBtnClass('arrow')"
+                            title="Pfeil">→</button>
+                </div>
+
+                <div class="face-divider"/>
+
+                <!-- Undo / Redo -->
+                <div class="d-flex gap-1 me-2">
+                    <button class="face-tool-btn"
+                            t-on-click="onUndo"
+                            t-att-disabled="!canUndo"
+                            title="Rückgängig (Strg+Z)">↩</button>
+                    <button class="face-tool-btn"
+                            t-on-click="onRedo"
+                            t-att-disabled="!canRedo"
+                            title="Wiederholen (Strg+Y)">↪</button>
+                </div>
+
+                <div class="face-divider"/>
+
+                <!-- Colors via event delegation -->
+                <div class="d-flex gap-1 mx-2" t-on-click="onColorBarClick">
+                    <t t-foreach="colors" t-as="c" t-key="c">
+                        <button class="face-color-btn"
+                                t-att-data-color="c"
+                                t-att-class="getColorBtnClass(c)"
+                                t-attf-style="background: {{c}};"
+                                t-att-title="c"/>
+                    </t>
+                </div>
+
+                <div class="face-divider"/>
+
+                <!-- Font Size -->
+                <div class="d-flex align-items-center gap-1 mx-2">
+                    <span class="face-label">Größe</span>
+                    <input type="range" min="12" max="48"
+                           t-att-value="state.fontSize"
+                           t-on-input="onFontSizeChange"
+                           style="width: 70px; accent-color: #E84C30;"/>
+                    <span class="face-label" style="min-width: 20px;"
+                          t-esc="state.fontSize"/>
+                </div>
+
+                <div class="flex-grow-1"/>
+
+                <!-- Zoom -->
+                <div class="d-flex align-items-center gap-1 me-2">
+                    <button class="face-zoom-btn" t-on-click="zoomOut">−</button>
+                    <button class="face-zoom-btn face-zoom-label" t-on-click="resetZoom"
+                            t-esc="zoomPercentLabel"/>
+                    <button class="face-zoom-btn" t-on-click="zoomIn">+</button>
+                </div>
+
+                <div class="face-divider"/>
+
+                <button t-if="state.selectedId"
+                        class="face-btn-delete me-1"
+                        t-on-click="deleteSelected">Löschen</button>
+
+                <input type="text" class="face-name-input me-1"
+                       t-att-value="state.annotationName"
+                       t-on-input="onNameInput"
+                       placeholder="Bezeichnung..."/>
+
+                <button class="face-btn-save me-1"
+                        t-on-click="onSave"
+                        t-att-disabled="state.saving">
+                    <t t-if="state.saving">Speichert...</t>
+                    <t t-else="">💾 Speichern</t>
+                </button>
+
+                <button class="face-btn-secondary me-1" t-on-click="onNewImage">Neu</button>
+                <button class="face-btn-secondary" t-on-click="onGoBack">← Zurück</button>
+            </div>
+
+            <!-- CANVAS AREA -->
+            <div t-ref="canvasContainer"
+                 class="face-canvas-area flex-grow-1"
+                 t-on-mousedown="onContainerMouseDown"
+                 t-on-touchstart="onContainerTouchStart"
+                 t-on-touchmove="onContainerTouchMove"
+                 t-on-touchend="onContainerTouchEnd"
+                 style="touch-action: none;">
+
+                <div class="face-canvas-transform"
+                     t-att-style="canvasTransformStyle">
+
+                    <img t-ref="mainImage"
+                         t-att-src="state.image"
+                         alt="Annotieren"
+                         class="face-main-image"
+                         draggable="false"/>
+
+                    <svg t-ref="svgCanvas"
+                         class="face-svg-overlay"
+                         t-att-style="svgCursorStyle"
+                         t-on-mousedown="onCanvasMouseDown"
+                         t-on-mousemove="onCanvasMouseMove"
+                         t-on-mouseup="onCanvasMouseUp"
+                         t-on-touchstart="onCanvasTouchStart"
+                         t-on-touchmove="onCanvasTouchMove"
+                         t-on-touchend="onCanvasTouchEnd">
+
+                        <defs>
+                            <filter id="annShadow">
+                                <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.5"/>
+                            </filter>
+                        </defs>
+
+                        <!-- ARROWS -->
+                        <t t-foreach="renderedArrows" t-as="a" t-key="a.id">
+                            <g class="annotation-handle">
+                                <line t-att-x1="a.x1" t-att-y1="a.y1"
+                                      t-att-x2="a.x2" t-att-y2="a.y2"
+                                      stroke="transparent"
+                                      t-att-stroke-width="hitWidth"
+                                      style="cursor: move;"
+                                      t-att-data-ann-id="a.id"
+                                      data-handle="body"
+                                      t-on-mousedown="onAnnotationDragStart"
+                                      t-on-touchstart="onAnnotationDragStart"/>
+                                <line t-att-x1="a.x1" t-att-y1="a.y1"
+                                      t-att-x2="a.x2" t-att-y2="a.y2"
+                                      t-att-stroke="a.color"
+                                      t-att-stroke-width="a.strokeWidth"
+                                      stroke-linecap="round"
+                                      filter="url(#annShadow)"
+                                      style="pointer-events: none;"/>
+                                <polygon t-att-points="a.headPoints"
+                                         t-att-fill="a.color"
+                                         filter="url(#annShadow)"
+                                         style="pointer-events: none;"/>
+                                <t t-if="state.selectedId === a.id">
+                                    <circle t-att-cx="a.x1" t-att-cy="a.y1"
+                                            t-att-r="handleR" fill="#E84C30" stroke="#fff"
+                                            t-att-stroke-width="handleStrokeW"
+                                            style="cursor: grab;"
+                                            t-att-data-ann-id="a.id" data-handle="start"
+                                            t-on-mousedown="onAnnotationDragStart"
+                                            t-on-touchstart="onAnnotationDragStart"/>
+                                    <circle t-att-cx="a.x2" t-att-cy="a.y2"
+                                            t-att-r="handleR" fill="#E84C30" stroke="#fff"
+                                            t-att-stroke-width="handleStrokeW"
+                                            style="cursor: grab;"
+                                            t-att-data-ann-id="a.id" data-handle="end"
+                                            t-on-mousedown="onAnnotationDragStart"
+                                            t-on-touchstart="onAnnotationDragStart"/>
+                                </t>
+                            </g>
+                        </t>
+
+                        <!-- TEXT ANNOTATIONS -->
+                        <t t-foreach="renderedTexts" t-as="a" t-key="a.id">
+                            <g class="annotation-handle">
+                                <rect t-att-x="a.bgX" t-att-y="a.bgY"
+                                      t-att-width="a.bgW" t-att-height="a.bgH"
+                                      rx="4" fill="rgba(0,0,0,0.65)"
+                                      filter="url(#annShadow)" style="cursor: move;"
+                                      t-att-data-ann-id="a.id" data-handle="body"
+                                      t-on-mousedown="onAnnotationDragStart"
+                                      t-on-touchstart="onAnnotationDragStart"
+                                      t-on-dblclick="onAnnotationDblClick"/>
+                                <rect t-if="state.selectedId === a.id"
+                                      t-att-x="a.selX" t-att-y="a.selY"
+                                      t-att-width="a.selW" t-att-height="a.selH"
+                                      rx="5" fill="none" stroke="#E84C30"
+                                      t-att-stroke-width="selStrokeW"
+                                      stroke-dasharray="4 2" style="pointer-events: none;"/>
+                                <text t-if="state.editingId !== a.id"
+                                      t-att-x="a.x" t-att-y="a.textY"
+                                      t-att-fill="a.color" t-att-font-size="a.fontSize"
+                                      font-weight="bold" font-family="'Segoe UI', sans-serif"
+                                      style="pointer-events: none; user-select: none;"
+                                      t-esc="a.text"/>
+                                <foreignObject t-if="state.editingId === a.id"
+                                               t-att-x="a.bgX" t-att-y="a.bgY"
+                                               t-att-width="a.editW" t-att-height="a.editH">
+                                    <input xmlns="http://www.w3.org/1999/xhtml"
+                                           class="face-edit-input"
+                                           t-att-value="state.editText"
+                                           t-on-input="onEditInput"
+                                           t-on-blur="onEditBlur"
+                                           t-on-keydown="onEditKeyDown"
+                                           t-att-style="a.editStyle"/>
+                                </foreignObject>
+                            </g>
+                        </t>
+
+                    </svg>
+                </div>
+            </div>
+
+            <!-- STATUS BAR -->
+            <div class="face-statusbar d-flex justify-content-between" style="touch-action: auto;">
+                <span t-esc="statusText"/>
+                <span t-esc="statusRight"/>
+            </div>
+
+        </t>
+    </div>
+</t>
+
+<!-- Image Annotatable Field Widget -->
+<t t-name="face_image_annotator.ImageAnnotatableField" t-inherit="web.ImageField" t-inherit-mode="extension">
+    <xpath expr="//div[hasclass('o_field_image')]" position="inside">
+        <button class="btn btn-sm btn-outline-primary mt-1"
+                t-on-click="onAnnotateClick"
+                title="Bild annotieren">
+            <i class="fa fa-pencil me-1"/>Annotieren
+        </button>
+    </xpath>
+</t>
+
+</templates>

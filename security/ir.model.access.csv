@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_face_image_annotation_user,face.image.annotation.user,model_face_image_annotation,base.group_user,1,1,1,0
+access_face_image_annotation_manager,face.image.annotation.manager,model_face_image_annotation,project.group_project_manager,1,1,1,1

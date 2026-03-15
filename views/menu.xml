@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Top-level App Menu -->
+    <menuitem id="menu_face_annotator_root"
+              name="Bild-Annotator"
+              web_icon="face_image_annotator,static/description/icon.png"
+              sequence="45"/>
+
+    <!-- Sub-menus -->
+    <menuitem id="menu_face_annotator_main"
+              name="Annotationen"
+              parent="menu_face_annotator_root"
+              sequence="10"/>
+
+    <menuitem id="menu_face_annotation_list"
+              name="Alle Annotationen"
+              parent="menu_face_annotator_main"
+              action="action_face_image_annotation"
+              sequence="10"/>
+
+    <menuitem id="menu_face_annotator_new"
+              name="Neues Bild annotieren"
+              parent="menu_face_annotator_main"
+              action="action_face_annotator_client"
+              sequence="20"/>
+
+</odoo>
